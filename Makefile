@@ -24,7 +24,10 @@ init:
 lint:
 	flake8 src
 
-clean_up:
+clean-up:
 	find . -type f -name "*.py[co]" -delete
 	find . -type f -name "*.ipynb_checkpoints" -delete
 	find . -type d -name "__pycache__" -delete
+
+reset-data:
+	rm -rf ~/hacking-medium-headlines

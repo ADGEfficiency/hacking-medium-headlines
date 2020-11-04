@@ -1,6 +1,6 @@
 # hacking-medium-headlines
 
-Predicting claps from headlines.
+Predicting claps from headlines on Medium.
 
 ## Setup
 
@@ -11,3 +11,13 @@ $ make requirements; make dotenv; make init;
 ```
 
 ## Use
+
+```bash
+$ python3 src/archive.py
+```
+
+Test:
+
+```bash
+$ pytest src/tests.py
+```

@@ -24,6 +24,9 @@ Is date important?
 
 Should the claps be normalized by TDS popularity?
 
+Classification or regression?
+- classification using naive bayes
+
 # TODO
 
 Manually check the number of articles for each page

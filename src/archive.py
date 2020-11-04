@@ -1,17 +1,16 @@
+import datetime
 import json
+import os
 
 from bs4 import BeautifulSoup
 import requests
+
+from src.dirs import HOME
 
 
 def clean_headline(string):
     string = string.replace('\u00a0', ' ')
     return string.encode('ascii', 'ignore').decode()
-
-
-def test_clean_claps():
-    assert clean_claps('10.6K') == 10600
-    assert clean_claps('10') == 10
 
 
 def clean_claps(claps):
@@ -46,14 +45,14 @@ def extract_article_data(divs):
 
 
 def save_article_data(dataset, name):
-    with open(f'./data/{name}.jsonl', 'w') as fi:
+    with open(os.path.join(HOME, 'data', 'raw', f'{name}.jsonl'), 'w') as fi:
         for js in dataset:
             fi.write(json.dumps(js) + '\n')
 
 
-def scrape_all_archive():
+def scrape_all_archive(site):
     print(f'scraping all archive')
-    url = 'https://towardsdatascience.com/archive'
+    url = f'https://{site}.com/archive'
     divs = request_and_parse(url)
 
     #  should be 10 articles in the all years archive
@@ -71,27 +70,43 @@ def request_and_parse(url):
     return soup.findAll('div', {'class': 'streamItem streamItem--postPreview js-streamItem'})
 
 
-def scrape_year(year):
+def scrape_year(site, year):
     year = str(year)
     print(f'scraping {year}')
-    url = f'https://towardsdatascience.com/archive/{year}'
-    divs = request_and_parse(url)
-    dataset = extract_article_data(divs)
-    save_article_data(dataset, year)
+    url = f'https://{site}.com/archive{year}'
+    if not check_history(url):
+        print(f'{url} failed - returning early')
+        return None
+    else:
+        divs = request_and_parse(url)
+        dataset = extract_article_data(divs)
+        save_article_data(dataset, year)
 
-def scrape_year_month(year, month):
 
-    import datetime
+def scrape_year_month(site, year, month):
+
     dt = datetime.datetime(year, month, 1)
     dt = datetime.datetime(year, month, 1)
     month = dt.strftime('%m')
     year = str(year)
     print(f'scraping {year}-{month}')
 
-    url = f'https://towardsdatascience.com/archive/{year}/{month}'
-    divs = request_and_parse(url)
-    dataset = extract_article_data(divs)
-    save_article_data(dataset, f'{year}-{month}')
+    url = f'https://{site}.com/archive/{year}/{month}'
+    if not check_history(url):
+        print(f'{url} failed - returning early')
+        return None
+    else:
+        divs = request_and_parse(url)
+        dataset = extract_article_data(divs)
+        save_article_data(dataset, f'{year}-{month}')
+
+
+def check_history(url):
+    res = requests.get(url)
+    if len(res.history) > 2:
+        return False
+    else:
+        return True
 
 
 if __name__ == '__main__':
@@ -99,18 +114,15 @@ if __name__ == '__main__':
     os.makedirs('./data', exist_ok=True)
     test_clean_claps()
 
-    scrape_all_archive()
-    for year in range(2010, 2015):
-        scrape_year(year)
+    def scrape_medium_publication(site):
+        scrape_all_archive(site)
+        for year in range(2010, 2021):
+            scrape_year(site, year)
 
-    year = 2015
-    for month in range(3, 13):
-        scrape_year_month(year, month)
+            #  no sites have monthly before 2015
+            if year >= 2015:
+                for month in range(1, 13):
+                    scrape_year_month(site, year, month)
 
-    for year in range(2016, 2020):
-        for month in range(1, 13):
-            scrape_year_month(year, month)
+    scrape_medium_publication('towardsdatascience')
 
-    year = 2020
-    for month in range(1, 12):
-        scrape_year_month(year, month)

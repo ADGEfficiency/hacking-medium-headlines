@@ -1,16 +1,14 @@
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
 import pandas as pd
 
-load_dotenv()
-home = os.getenv('PROJECT_HOME')
+from src.dirs import HOME
 
 
 def load_csvs(folder='raw', recursive=False):
     """loads all CSVs in a directory"""
-    base = Path(home, 'data', folder)
+    base = Path(HOME, 'data', folder)
 
     if recursive:
         pattern = '**/*.csv'
