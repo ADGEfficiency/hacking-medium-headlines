@@ -5,7 +5,7 @@ import os
 from bs4 import BeautifulSoup
 import requests
 
-from src.dirs import HOME
+from src.dirs import DATAHOME
 
 
 def clean_headline(string):
@@ -21,7 +21,7 @@ def clean_claps(claps):
         return float(claps)
 
 
-def extract_article_data(divs):
+def extract_article_data(divs, site_id):
     #  TODO - refactor this look to work on a single div
     dataset = []
     for d in divs:
@@ -39,29 +39,35 @@ def extract_article_data(divs):
             data['headline'] = clean_headline(h3[0].text)
             data['claps-raw'] = claps[0].text
             data['claps'] = clean_claps(claps[0].text)
+            data['site_id'] = site_id
             dataset.append(data)
 
     return dataset
 
 
-def save_article_data(dataset, name):
-    with open(os.path.join(HOME, 'data', 'raw', f'{name}.jsonl'), 'w') as fi:
+def save_article_data(dataset, site, name):
+    with open(os.path.join(
+        DATAHOME,
+        'raw',
+        get_site_id(site),
+        f'{name}.jsonl'
+    ), 'w') as fi:
         for js in dataset:
             fi.write(json.dumps(js) + '\n')
 
 
 def scrape_all_archive(site):
     print(f'scraping all archive')
-    url = f'https://{site}.com/archive'
+    url = f'https://{site}/archive'
     divs = request_and_parse(url)
 
     #  should be 10 articles in the all years archive
     #  monthly / yearly archives have variable number
-    assert len(divs) == 10
+    #assert len(divs) == 10 # 9 for freecode camp!
 
-    dataset = extract_article_data(divs)
-    assert len(dataset) == 10
-    save_article_data(dataset, 'all')
+    dataset = extract_article_data(divs, get_site_id(site))
+    #assert len(dataset) == 10 as above
+    save_article_data(dataset, site, 'all')
 
 
 def request_and_parse(url):
@@ -73,14 +79,14 @@ def request_and_parse(url):
 def scrape_year(site, year):
     year = str(year)
     print(f'scraping {year}')
-    url = f'https://{site}.com/archive{year}'
+    url = f'https://{site}/archive{year}'
     if not check_history(url):
         print(f'{url} failed - returning early')
         return None
     else:
         divs = request_and_parse(url)
-        dataset = extract_article_data(divs)
-        save_article_data(dataset, year)
+        dataset = extract_article_data(divs, get_site_id(site))
+        save_article_data(dataset, site, year)
 
 
 def scrape_year_month(site, year, month):
@@ -91,14 +97,14 @@ def scrape_year_month(site, year, month):
     year = str(year)
     print(f'scraping {year}-{month}')
 
-    url = f'https://{site}.com/archive/{year}/{month}'
+    url = f'https://{site}/archive/{year}/{month}'
     if not check_history(url):
         print(f'{url} failed - returning early')
         return None
     else:
         divs = request_and_parse(url)
-        dataset = extract_article_data(divs)
-        save_article_data(dataset, f'{year}-{month}')
+        dataset = extract_article_data(divs, get_site_id(site))
+        save_article_data(dataset, site, f'{year}-{month}')
 
 
 def check_history(url):
@@ -111,10 +117,19 @@ def check_history(url):
 
 if __name__ == '__main__':
     import os
-    os.makedirs('./data', exist_ok=True)
-    test_clean_claps()
+
+    def get_site_id(site):
+        site_id =  site.split('/')[-1].split('.')[0]
+        assert '.' not in site_id
+        assert '/' not in site_id
+        return site_id
 
     def scrape_medium_publication(site):
+        os.makedirs(
+            os.path.join(DATAHOME, 'raw', get_site_id(site)),
+            exist_ok=True
+        )
+        print(f'scraping {site}')
         scrape_all_archive(site)
         for year in range(2010, 2021):
             scrape_year(site, year)
@@ -124,5 +139,9 @@ if __name__ == '__main__':
                 for month in range(1, 13):
                     scrape_year_month(site, year, month)
 
-    scrape_medium_publication('towardsdatascience')
-
+    # scrape_medium_publication('medium.com/free-code-camp')
+    # scrape_medium_publication('towardsdatascience.com')
+    scrape_medium_publication('medium.com/the-mission')
+    scrape_medium_publication('medium.com/hacker-daily')
+    scrape_medium_publication('medium.com/personal-growth')
+    scrape_medium_publication('medium.com/swlh')
