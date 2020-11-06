@@ -29,5 +29,5 @@ clean-up:
 	find . -type f -name "*.ipynb_checkpoints" -delete
 	find . -type d -name "__pycache__" -delete
 
-reset-data:
+clean-data:
 	rm -rf ~/hacking-medium-headlines

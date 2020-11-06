@@ -56,55 +56,37 @@ def save_article_data(dataset, site, name):
             fi.write(json.dumps(js) + '\n')
 
 
-def scrape_all_archive(site):
-    print(f'scraping all archive')
-    url = f'https://{site}/archive'
-    divs = request_and_parse(url)
-
-    #  should be 10 articles in the all years archive
-    #  monthly / yearly archives have variable number
-    #assert len(divs) == 10 # 9 for freecode camp!
-
-    dataset = extract_article_data(divs, get_site_id(site))
-    #assert len(dataset) == 10 as above
-    save_article_data(dataset, site, 'all')
-
-
 def request_and_parse(url):
     res = requests.get(url)
     soup = BeautifulSoup(res.text, features="html.parser")
     return soup.findAll('div', {'class': 'streamItem streamItem--postPreview js-streamItem'})
 
 
-def scrape_year(site, year):
-    year = str(year)
-    print(f'scraping {year}')
-    url = f'https://{site}/archive{year}'
+def scrape(site, year=None, month=None):
+    print(f'scraping {site} - {year}-{month}')
+
+    if year == month == None:
+        fname = 'all'
+        url = f'https://{site}/archive'
+    elif month == None:
+        fname = str(year)
+        url = f'https://{site}/archive{year}'
+    else:
+        fname = f'{year}-{month}'
+        url = f'https://{site}/archive/{year}/{month}'
+
     if not check_history(url):
         print(f'{url} failed - returning early')
         return None
     else:
         divs = request_and_parse(url)
         dataset = extract_article_data(divs, get_site_id(site))
-        save_article_data(dataset, site, year)
 
+        for js in dataset:
+            js['year'] = year
+            js['site'] = get_site_id(site)
 
-def scrape_year_month(site, year, month):
-
-    dt = datetime.datetime(year, month, 1)
-    dt = datetime.datetime(year, month, 1)
-    month = dt.strftime('%m')
-    year = str(year)
-    print(f'scraping {year}-{month}')
-
-    url = f'https://{site}/archive/{year}/{month}'
-    if not check_history(url):
-        print(f'{url} failed - returning early')
-        return None
-    else:
-        divs = request_and_parse(url)
-        dataset = extract_article_data(divs, get_site_id(site))
-        save_article_data(dataset, site, f'{year}-{month}')
+        save_article_data(dataset, site, fname)
 
 
 def check_history(url):
@@ -129,18 +111,24 @@ if __name__ == '__main__':
             os.path.join(DATAHOME, 'raw', get_site_id(site)),
             exist_ok=True
         )
-        print(f'scraping {site}')
-        scrape_all_archive(site)
+        scrape(site)
+
         for year in range(2010, 2021):
-            scrape_year(site, year)
+            ds = scrape(site, year=year)
 
             #  no sites have monthly before 2015
             if year >= 2015:
                 for month in range(1, 13):
-                    scrape_year_month(site, year, month)
+                    year = int(year)
+                    month = int(month)
+                    dt = datetime.datetime(year, month, 1)
+                    dt = datetime.datetime(year, month, 1)
+                    month = dt.strftime('%m')
+                    year = str(year)
+                    scrape(site, year=year, month=month)
 
-    # scrape_medium_publication('medium.com/free-code-camp')
-    # scrape_medium_publication('towardsdatascience.com')
+    scrape_medium_publication('medium.com/free-code-camp')
+    scrape_medium_publication('towardsdatascience.com')
     scrape_medium_publication('medium.com/the-mission')
     scrape_medium_publication('medium.com/hacker-daily')
     scrape_medium_publication('medium.com/personal-growth')

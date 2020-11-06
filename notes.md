@@ -1,6 +1,3 @@
-
-
-
 ## Log
 
 Used `https://towardsdatascience.com/`
@@ -8,6 +5,18 @@ Used `https://towardsdatascience.com/`
 
 Used 'https://towardsdatascience.com/archive'
 - easier :)
+
+
+## Outcomes / goals
+
+CLI to predict claps from headline (use from a shell)
+
+Interpret features using LIME
+
+tech
+- all in on skearn pipes
+- use naive bayes
+
 
 
 ## Open questions
@@ -23,6 +32,10 @@ Claps rounded to the nearest 1,000 for large claps
 Is date important?
 
 Should the claps be normalized by TDS popularity?
+
+Features
+- use of numbers (0 to 9, 10+)
+- me, I, my (self reference detector)
 
 Classification or regression?
 - classification using naive bayes
