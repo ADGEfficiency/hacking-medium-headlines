@@ -14,7 +14,8 @@ dotenv:
 	echo "PROJECT_NAME=$(PROJECT_NAME)" > .env
 	echo "PROJECT_HOME=$(PROJECT_HOME)" > .env
 
-init:
+clean-and-init:
+	rm -rf ~/hacking-medium-headlines
 	mkdir -p $(PROJECT_HOME)/data/raw
 	mkdir -p $(PROJECT_HOME)/data/interim
 	mkdir -p $(PROJECT_HOME)/data/processed
@@ -28,6 +29,3 @@ clean-up:
 	find . -type f -name "*.py[co]" -delete
 	find . -type f -name "*.ipynb_checkpoints" -delete
 	find . -type d -name "__pycache__" -delete
-
-clean-data:
-	rm -rf ~/hacking-medium-headlines

@@ -36,6 +36,7 @@ Should the claps be normalized by TDS popularity?
 Features
 - use of numbers (0 to 9, 10+)
 - me, I, my (self reference detector)
+- LENGTH! (log length)
 
 Classification or regression?
 - classification using naive bayes

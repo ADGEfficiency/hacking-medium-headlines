@@ -86,6 +86,7 @@ def scrape(site, year=None, month=None):
             js['year'] = year
             js['site'] = get_site_id(site)
 
+        print(f'  found {len(dataset)} articles')
         save_article_data(dataset, site, fname)
 
 
@@ -111,11 +112,8 @@ if __name__ == '__main__':
             os.path.join(DATAHOME, 'raw', get_site_id(site)),
             exist_ok=True
         )
-        scrape(site)
 
-        for year in range(2010, 2021):
-            ds = scrape(site, year=year)
-
+        for year in range(2015, 2021):
             #  no sites have monthly before 2015
             if year >= 2015:
                 for month in range(1, 13):
@@ -127,9 +125,14 @@ if __name__ == '__main__':
                     year = str(year)
                     scrape(site, year=year, month=month)
 
-    scrape_medium_publication('medium.com/free-code-camp')
-    scrape_medium_publication('towardsdatascience.com')
-    scrape_medium_publication('medium.com/the-mission')
-    scrape_medium_publication('medium.com/hacker-daily')
-    scrape_medium_publication('medium.com/personal-growth')
-    scrape_medium_publication('medium.com/swlh')
+    # scrape_medium_publication('medium.com/hackernoon')
+    # scrape_medium_publication('medium.com/free-code-camp')
+    # scrape_medium_publication('towardsdatascience.com')
+    # scrape_medium_publication('medium.com/the-mission')
+    # scrape_medium_publication('medium.com/personal-growth')
+    # scrape_medium_publication('medium.com/swlh')
+    # scrape_medium_publication('medium.com/level-up-web')
+    # scrape_medium_publication('medium.com/better-programming')
+    scrape_medium_publication('medium.com/dailyjs')
+    scrape_medium_publication('levelup.gitconnected.com')
+
