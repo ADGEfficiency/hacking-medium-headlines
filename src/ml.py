@@ -1,52 +1,74 @@
+import json
+
+from joblib import dump, load
 import pandas as pd
-from src.io import load_jsonls
 import numpy as np
 
-def process_raw_data(year_start=2014):
-    dataset = load_jsonls('raw')
-    dataset = pd.DataFrame(dataset)
-    dataset.drop(['headline-raw', 'claps-raw'], axis=1, inplace=True)
-
-    dupes_mask = dataset.duplicated('headline')
-    print(f'dropping {dupes_mask.sum()} duplicates')
-    dataset = dataset.loc[~dupes_mask, :]
-
-    dataset['year'] = dataset['year'].astype(int)
-    year_mask = dataset.loc[:, 'year'] >= year_start
-    n = year_mask.shape[0] - year_mask.sum()
-    print(f'dropping {n} rows for {year_start} year start')
-    dataset = dataset.loc[year_mask, :]
-    assert dataset['year'].min() >= year_start
-
-    print(f'ds shape: {dataset.shape}')
-    return dataset
-
-
-from sklearn.preprocessing import KBinsDiscretizer
-def create_binned_target(dataset):
-    return KBinsDiscretizer(
-        n_bins=4,
-        strategy='quantile',
-        encode='ordinal'
-    )
-
-
-def create_features(
-    dataset
-):
-    binner = create_binned_target(dataset)
-    dataset.loc[:, 'binned-class'] = binner.fit_transform(dataset['claps'].values.reshape(-1, 1))
-
-    dataset.loc[:, 'log-claps'] = np.log(dataset['claps'])
-    dataset.loc[:, 'clip-claps'] = np.clip(
-        dataset['claps'],
-        a_min=0,
-        a_max=80000
-    )
-    dataset.loc[:, 'n-characters'] = dataset.loc[:, 'headline'].apply(lambda x: len(x))
-    dataset.loc[:, 'n-words'] = dataset.loc[:, 'headline'].apply(lambda x: len(x.split(' ')))
-    return dataset
 from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics import balanced_accuracy_score, confusion_matrix
+from sklearn.metrics import make_scorer
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import GaussianNB, MultinomialNB, CategoricalNB
+from sklearn.pipeline import FeatureUnion, Pipeline
+from sklearn.preprocessing import FunctionTransformer
+from sklearn.preprocessing import OneHotEncoder
+
+from src.dirs import MODELHOME, DATAHOME
+from src.data import process_raw_data, create_features
+
+
+def to_dense(x):
+    return x.todense()
+
+
+def process_grid_search_results(gs):
+    cv_res = gs.cv_results_
+    res = pd.concat([
+        pd.DataFrame(cv_res['params']),
+        pd.DataFrame(cv_res['mean_test_score'], columns=['test']),
+        pd.DataFrame(cv_res['mean_train_score'], columns=['train']),
+        pd.DataFrame(cv_res['std_test_score'], columns=['test-std'])
+    ], axis=1)
+    res.sort_values('test', ascending=False, inplace=True)
+    res.columns = [c.split('__')[-1] for c in res.columns]
+    return res
+
+
+def evaluate_model(est, x_tr, y_tr, x_ho, y_ho):
+    pred_tr = est.predict(x_tr)
+    score_tr = balanced_accuracy_score(y_tr, pred_tr)
+    pred_ho = est.predict(x_ho)
+    score_ho = balanced_accuracy_score(y_ho, pred_ho)
+    return {'score-tr': score_tr, 'score-ho': score_ho}
+
+
+def train_final_models(params, pipe, dataset, path):
+    """trains on both training & entire dataset"""
+    path = MODELHOME / path
+    path.mkdir(exist_ok=True)
+    print(f'final model: {params}')
+    ds = dataset
+
+    pipe.set_params(**params)
+    pipe.fit(ds['x_tr'], ds['y_tr'])
+    dump(pipe, path / 'pipe-tr.joblib')
+
+    pipe.fit(ds['x'], ds['y'])
+    dump(pipe, path / 'pipe-fi.joblib')
+
+    for name, data in ds.items():
+        data.to_csv((path / name).with_suffix('.csv'))
+
+    with open(path / 'params.json', 'w') as fi:
+        json.dump(
+            {name: repr(o) for name, o in params.items()},
+            fi
+        )
+
 
 class TargetEncoding(BaseEstimator, TransformerMixin):
     def __init__(self, target='claps', group='site_id'):
@@ -69,19 +91,13 @@ class TargetEncoding(BaseEstimator, TransformerMixin):
 
 if __name__ == '__main__':
     dataset = process_raw_data(year_start=2017)
-    dataset = create_features(dataset)
+    dataset, binner = create_features(dataset)
 
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.preprocessing import OneHotEncoder
+    dump(binner, DATAHOME / 'processed' / 'binner.joblib')
 
-    from sklearn.compose import ColumnTransformer
-
-    from sklearn.pipeline import Pipeline
-
-    from sklearn.preprocessing import FunctionTransformer
     words_pipe = Pipeline([
-        ('tidf', TfidfVectorizer()),
-        ('todense', FunctionTransformer(lambda x: x.todense(), accept_sparse=True)),
+        ('tidf', TfidfVectorizer(stop_words='english')),
+        ('todense', FunctionTransformer(to_dense, accept_sparse=True)),
     ])
 
     transformer = ColumnTransformer(
@@ -94,81 +110,93 @@ if __name__ == '__main__':
         ],
         remainder='drop'
     )
-    from sklearn.naive_bayes import GaussianNB, MultinomialNB, CategoricalNB
-    from sklearn.pipeline import FeatureUnion
     pipe = Pipeline([
         ('features', transformer),
-        ('est', MultinomialNB())
+        ('est', GaussianNB())
     ])
-    from sklearn.ensemble import RandomForestClassifier
+
     parameters = [
         {
             'est': [MultinomialNB()],
-            'features__words__tidf__stop_words': [None],
+            'features__words__tidf__stop_words': [None, 'english'],
             'features__target-encoding': ['drop', TargetEncoding()]
         },
         {
             'est': [GaussianNB()],
-            'features__words__tidf__stop_words': [None],
+            'features__words__tidf__stop_words': [None, 'english'],
             'features__target-encoding': ['drop', TargetEncoding()]
         },
         {
-            'est': [RandomForestClassifier()]
+            'est': [RandomForestClassifier()],
+            'features__words__tidf__stop_words': [None, 'english'],
             'features__target-encoding': ['drop', TargetEncoding()]
         }
     ]
-    from sklearn.model_selection import GridSearchCV
-    gs = GridSearchCV(pipe, parameters)
 
-    from sklearn.model_selection import train_test_split
-    x_tr, x_te, y_tr, y_te = train_test_split(dataset, dataset['binned-class'])
+    scorer = make_scorer(balanced_accuracy_score)
+    x = dataset
+    y = dataset['binned-class']
+    x_tr, x_ho, y_tr, y_ho = train_test_split(x, y, shuffle=True)
 
+    print('\nstarting grid search 1')
+    gs = GridSearchCV(
+         pipe,
+         parameters,
+         n_jobs=6,
+         scoring=scorer,
+         refit=True,
+         return_train_score=True,
+         verbose=True
+     )
     gs.fit(x_tr, y_tr)
-    print(gs.cv_results_['mean_test_score'])
+    res = process_grid_search_results(gs)
+    print(res)
+    res.to_csv(DATAHOME / 'interim' / 'gridsearch1.csv')
 
-    import pdb; pdb.set_trace()
+    parameters = [
+        {
+            'est': [RandomForestClassifier()],
+            'est__n_estimators': [100, 250, 500],
+            'est__max_depth': [5, 10, None],
+            'est__max_features': ['sqrt', 'log2'],
+            'features__words__tidf__stop_words': ['english'],
+            'features__target-encoding': [TargetEncoding()]
+        }
+    ]
 
+    print('\nstarting grid search 2')
+    gs2 = GridSearchCV(
+        pipe,
+        parameters,
+        n_jobs=6,
+        scoring=scorer,
+        refit=True,
+        return_train_score=True,
+        verbose=True
+    )
+    gs2.fit(x_tr, y_tr)
+    res = process_grid_search_results(gs2)
+    print(res)
+    res.to_csv(DATAHOME / 'interim' / 'gridsearch2.csv')
 
+    print('evaluating best random forest on holdout')
+    print(evaluate_model(gs2.best_estimator_, x_tr, y_tr, x_ho, y_ho))
 
-    pipe.fit(x_tr, y_tr)
-    steps = transformer.named_transformers_
+    dataset = {
+        'x_tr': x_tr,
+        'y_tr': y_tr,
+        'x_ho': x_ho,
+        'y_ho': y_ho,
+        'x': x,
+        'y': y
+    }
 
-    for name, step in steps.items():
-        try:
-            n_features = step.get_feature_names()
-            print(f'{name}, {len(n_features)} cols')
-        except AttributeError:
-            pass
+    params = gs2.best_params_
+    train_final_models(gs2.best_params_, pipe, dataset, 'final-rf')
 
-    from sklearn.metrics import balanced_accuracy_score, confusion_matrix
-    pred_tr = pipe.predict(x_tr)
-    score_tr = balanced_accuracy_score(y_tr, pred_tr)
-    pred_te = pipe.predict(x_te)
-    score_te = balanced_accuracy_score(y_te, pred_te)
-    print(score_tr, score_te)
-
-    cli = 'Top Ten Python Tips'
-    print(cli)
-
-    cli = pd.DataFrame({
-        'headline': cli,
-        'claps': -1,
-        'site_id': 'personal-growth',
-        'year': -1,
-        'site': 'hacker-daily'
-    }, index=[0])
-    cli = create_features(cli)
-
-    print(pipe.predict(cli))
-
-    #  check predictions / accuracy by site
-    #  TODO error analysis of worst predictions (use the probability from the naive bayes model)
-    #  do this in a notebook :)
-
-    #  ordinal encoding of the site by median claps in the training data?
-
-    #  expts were
-    #  over stop words -> not remove
-    #  over classifires -> bayse is fine
-
-
+    nb_params = {
+        'est': MultinomialNB(),
+        'features__words__tidf__stop_words': 'english',
+        'features__target-encoding': 'drop'
+    }
+    train_final_models(nb_params, pipe, dataset, 'final-naive')

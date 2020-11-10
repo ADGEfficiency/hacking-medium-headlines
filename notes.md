@@ -38,6 +38,8 @@ Features
 - me, I, my (self reference detector)
 - LENGTH! (log length)
 
+Should I convert `6` to `six` (or vice versa)?
+
 Classification or regression?
 - classification using naive bayes
 

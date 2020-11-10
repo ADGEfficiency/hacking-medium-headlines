@@ -2,10 +2,10 @@ import json
 import os
 from pathlib import Path
 
+from joblib import load
 import pandas as pd
 
-from src.dirs import HOME
-from src.dirs import DATAHOME
+from src.dirs import HOME, DATAHOME
 
 
 def load_csvs(folder='raw', recursive=False):
@@ -41,3 +41,19 @@ def load_jsonls(folder='raw', recursive=False):
                 data = json.loads(line)
                 dataset.append(data)
     return dataset
+
+
+def load_artifacts(path):
+    """load model artifacts such as csvs, model and JSON files"""
+    artifacts = {}
+    for csv in path.glob('*.csv'):
+        artifacts[csv.stem] = pd.read_csv(csv, index_col=0)
+
+    for pipe in path.glob('*.joblib'):
+        artifacts[pipe.stem] = load(pipe)
+
+    for js in path.glob('*.json'):
+        with open(js, 'r') as fi:
+            artifacts[js.stem] = json.load(fi)
+
+    return artifacts

@@ -61,8 +61,12 @@ def request_and_parse(url):
     soup = BeautifulSoup(res.text, features="html.parser")
     return soup.findAll('div', {'class': 'streamItem streamItem--postPreview js-streamItem'})
 
+from random import randint
+from time import sleep
+
 
 def scrape(site, year=None, month=None):
+    sleep(randint(1, 3))
     print(f'scraping {site} - {year}-{month}')
 
     if year == month == None:
@@ -84,6 +88,7 @@ def scrape(site, year=None, month=None):
 
         for js in dataset:
             js['year'] = year
+            js['month'] = month
             js['site'] = get_site_id(site)
 
         print(f'  found {len(dataset)} articles')
@@ -133,6 +138,9 @@ if __name__ == '__main__':
     # scrape_medium_publication('medium.com/swlh')
     # scrape_medium_publication('medium.com/level-up-web')
     # scrape_medium_publication('medium.com/better-programming')
+    # scrape_medium_publication('medium.com/better-humans')
     scrape_medium_publication('medium.com/dailyjs')
     scrape_medium_publication('levelup.gitconnected.com')
+
+    scrape_medium_publication('writingcooperative.com')
 
