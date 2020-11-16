@@ -1,6 +1,8 @@
 import datetime
-import json
 import os
+import json
+from random import randint
+from time import sleep
 
 from bs4 import BeautifulSoup
 import requests
@@ -22,7 +24,6 @@ def clean_claps(claps):
 
 
 def extract_article_data(divs, site_id):
-    #  TODO - refactor this look to work on a single div
     dataset = []
     for d in divs:
         h2 = d.findAll('h2')
@@ -45,13 +46,8 @@ def extract_article_data(divs, site_id):
     return dataset
 
 
-def save_article_data(dataset, site, name):
-    with open(os.path.join(
-        DATAHOME,
-        'raw',
-        get_site_id(site),
-        f'{name}.jsonl'
-    ), 'w') as fi:
+def save_article_data(dataset, site, fname):
+    with open(fname, 'w') as fi:
         for js in dataset:
             fi.write(json.dumps(js) + '\n')
 
@@ -61,28 +57,22 @@ def request_and_parse(url):
     soup = BeautifulSoup(res.text, features="html.parser")
     return soup.findAll('div', {'class': 'streamItem streamItem--postPreview js-streamItem'})
 
-from random import randint
-from time import sleep
-
 
 def scrape(site, year=None, month=None):
-    sleep(randint(1, 3))
     print(f'scraping {site} - {year}-{month}')
+    fname = DATAHOME / 'raw' / get_site_id(site) / f'{year}-{month}.jsonl'
 
-    if year == month == None:
-        fname = 'all'
-        url = f'https://{site}/archive'
-    elif month == None:
-        fname = str(year)
-        url = f'https://{site}/archive{year}'
-    else:
-        fname = f'{year}-{month}'
-        url = f'https://{site}/archive/{year}/{month}'
-
-    if not check_history(url):
-        print(f'{url} failed - returning early')
+    if fname.is_file():
+        print(f'  {fname} already exists - returning early')
         return None
+
+    url = f'https://{site}/archive/{year}/{month}'
+    if not check_history(url):
+        print(f'  {url} failed - returning early')
+        return None
+
     else:
+        sleep(randint(1, 3))
         divs = request_and_parse(url)
         dataset = extract_article_data(divs, get_site_id(site))
 
@@ -103,44 +93,53 @@ def check_history(url):
         return True
 
 
+def get_site_id(site):
+    site_id =  site.split('/')[-1].split('.')[0]
+    assert '.' not in site_id
+    assert '/' not in site_id
+    return site_id
+
+
+def scrape_medium_publication(site):
+    if '.com' not in site:
+        site = f'medium.com/{site}'
+
+    os.makedirs(DATAHOME / 'raw' / get_site_id(site)), exist_ok=True)
+
+    #  no sites have monthly before 2015
+    for year in range(2015, 2021):
+        for month in range(1, 13):
+            year = int(year)
+            month = int(month)
+            dt = datetime.datetime(year, month, 1)
+            dt = datetime.datetime(year, month, 1)
+            month = dt.strftime('%m')
+            year = str(year)
+            scrape(site, year=year, month=month)
+
+
 if __name__ == '__main__':
-    import os
-
-    def get_site_id(site):
-        site_id =  site.split('/')[-1].split('.')[0]
-        assert '.' not in site_id
-        assert '/' not in site_id
-        return site_id
-
-    def scrape_medium_publication(site):
-        os.makedirs(
-            os.path.join(DATAHOME, 'raw', get_site_id(site)),
-            exist_ok=True
-        )
-
-        for year in range(2015, 2021):
-            #  no sites have monthly before 2015
-            if year >= 2015:
-                for month in range(1, 13):
-                    year = int(year)
-                    month = int(month)
-                    dt = datetime.datetime(year, month, 1)
-                    dt = datetime.datetime(year, month, 1)
-                    month = dt.strftime('%m')
-                    year = str(year)
-                    scrape(site, year=year, month=month)
-
-    # scrape_medium_publication('medium.com/hackernoon')
-    # scrape_medium_publication('medium.com/free-code-camp')
-    # scrape_medium_publication('towardsdatascience.com')
-    # scrape_medium_publication('medium.com/the-mission')
-    # scrape_medium_publication('medium.com/personal-growth')
-    # scrape_medium_publication('medium.com/swlh')
-    # scrape_medium_publication('medium.com/level-up-web')
-    # scrape_medium_publication('medium.com/better-programming')
-    # scrape_medium_publication('medium.com/better-humans')
-    scrape_medium_publication('medium.com/dailyjs')
-    scrape_medium_publication('levelup.gitconnected.com')
-
-    scrape_medium_publication('writingcooperative.com')
-
+    pubs = [
+        'medium.com/hackernoon',
+        'medium.com/free-code-camp',
+        'towardsdatascience.com',
+        'medium.com/the-mission',
+        'medium.com/personal-growth',
+        'medium.com/swlh',
+        'medium.com/level-up-web',
+        'medium.com/better-programming',
+        'medium.com/better-humans',
+        'medium.com/dailyjs',
+        'levelup.gitconnected.com',
+        'writingcooperative.com',
+        'medium.com/the-ascent',
+        'medium.com/javascript-in-plain-english',
+        'levelup.gitconnected.com',
+        'change-your-mind',
+        'analytics-vidhya',
+        'better-marketing',
+        'matter',
+        'startup-grind'
+    ]
+    for pub in pubs:
+        scrape_medium_publication(pub)

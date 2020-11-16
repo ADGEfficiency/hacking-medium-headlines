@@ -4,4 +4,5 @@ python-dotenv
 pytest
 pandas
 matplotlib
-sklearn
+nltk==3.5
+scikit-learn==0.23.2

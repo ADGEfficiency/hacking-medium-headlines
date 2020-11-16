@@ -1,4 +1,4 @@
-#  cleaning & some feature engineering
+"""cleaning & some feature engineering"""
 
 import pandas as pd
 import numpy as np
@@ -18,6 +18,8 @@ def process_raw_data(year_start=2014):
     print(f'dropping {dupes_mask.sum()} duplicates')
     dataset = dataset.loc[~dupes_mask, :]
 
+    dataset['month'] = dataset['month'].astype(int)
+
     dataset['year'] = dataset['year'].astype(int)
     year_mask = dataset.loc[:, 'year'] >= year_start
     n = year_mask.shape[0] - year_mask.sum()
@@ -29,23 +31,25 @@ def process_raw_data(year_start=2014):
     return dataset
 
 
-def create_binned_target():
+def create_binned_target(n_bins):
     return KBinsDiscretizer(
-        n_bins=4,
+        n_bins=n_bins,
         strategy='quantile',
         encode='ordinal'
     )
 
 
-def create_features(dataset):
-    binner = create_binned_target()
+def create_features(dataset, binner=None, n_bins=5, clip_max=80000):
+    if not binner:
+        binner = create_binned_target(n_bins)
+
     dataset.loc[:, 'binned-class'] = binner.fit_transform(dataset['claps'].values.reshape(-1, 1))
 
     dataset.loc[:, 'log-claps'] = np.log(dataset['claps'])
     dataset.loc[:, 'clip-claps'] = np.clip(
         dataset['claps'],
         a_min=0,
-        a_max=80000
+        a_max=clip_max
     )
     dataset.loc[:, 'n-characters'] = dataset.loc[:, 'headline'].apply(lambda x: len(x))
     dataset.loc[:, 'n-words'] = dataset.loc[:, 'headline'].apply(lambda x: len(x.split(' ')))

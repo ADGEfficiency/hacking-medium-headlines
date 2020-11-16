@@ -17,9 +17,17 @@ tech
 - all in on skearn pipes
 - use naive bayes
 
+cookie
+- should I just have data/raw, data/processed (no need for interim)
 
 
 ## Open questions
+
+Accuracy by class
+
+Should I rework the binner to have edges I like?
+
+Create features is doing too much
 
 Should I bother with subtitle
 - often cut off (see 2014 archive)
