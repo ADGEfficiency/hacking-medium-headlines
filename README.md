@@ -25,19 +25,7 @@ make pulls3
 ### CLI to predict claps from headline
 
 ```bash
-$ python3 cli.py "HEADLINE" "SITE_ID"
-```
-
-For example:
-
-```bash
-$ python3 cli.py "Four Ways to Make Millions on Medium" "towardsdatascience"
-```
-
-See available sites - including their `SITE_ID`:
-
-```bash
-$ python3 inspect.py
+$ python3 src/cli.py 
 ```
 
 ### Reproduce the data science work from scratch
