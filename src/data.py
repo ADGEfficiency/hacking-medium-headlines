@@ -7,19 +7,19 @@ from sklearn.preprocessing import KBinsDiscretizer
 from src.io import load_jsonls
 
 
-def process_raw_data(year_start=2014):
+def process_raw_data(year_start=2014, drop_dupes=True):
     dataset = load_jsonls('raw')
     dataset = pd.DataFrame(dataset)
     print(f'raw ds shape: {dataset.shape}')
     dataset.drop(['headline-raw', 'claps-raw'], axis=1, inplace=True)
-
     dataset.loc[:, 'headline'] = dataset.loc[:, 'headline'].str.lower()
-    dupes_mask = dataset.duplicated('headline')
-    print(f'dropping {dupes_mask.sum()} duplicates')
-    dataset = dataset.loc[~dupes_mask, :]
+
+    if drop_dupes:
+        dupes_mask = dataset.duplicated('headline')
+        print(f'dropping {dupes_mask.sum()} duplicates')
+        dataset = dataset.loc[~dupes_mask, :]
 
     dataset['month'] = dataset['month'].astype(int)
-
     dataset['year'] = dataset['year'].astype(int)
     year_mask = dataset.loc[:, 'year'] >= year_start
     n = year_mask.shape[0] - year_mask.sum()

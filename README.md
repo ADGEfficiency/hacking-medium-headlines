@@ -7,10 +7,10 @@ Predicting claps from headlines on Medium.
 
 Due to the wide variety in options for managing virtual environments, we leave it up to the user to create and activate your virtual environment.
 
-First run to setup Python packages & folders:
+First run to setup Python packages, `.env` & folders:
 
 ```bash
-$ make requirements; make dotenv; make init;
+$ make requirements; make dotenv; make clean
 ```
 
 Download data & model artifacts into `~/hacking-medium-headlines` from S3:
@@ -25,13 +25,13 @@ make pulls3
 ### CLI to predict claps from headline
 
 ```bash
-python3 cli.py "HEADLINE" "SITE_ID"
+$ python3 cli.py "HEADLINE" "SITE_ID"
 ```
 
 For example:
 
 ```bash
-python3 cli.py "Four Ways to Make Millions on Medium" "towardsdatascience"
+$ python3 cli.py "Four Ways to Make Millions on Medium" "towardsdatascience"
 ```
 
 See available sites - including their `SITE_ID`:

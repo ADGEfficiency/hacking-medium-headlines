@@ -5,7 +5,7 @@ from pathlib import Path
 from joblib import load
 import pandas as pd
 
-from src.dirs import HOME, DATAHOME
+from src.dirs import HOME, DATAHOME, MODELHOME
 
 
 def load_csvs(folder='raw', recursive=False):
@@ -43,9 +43,12 @@ def load_jsonls(folder='raw', recursive=False):
     return dataset
 
 
-def load_artifacts(path):
+def load_artifacts(fldr):
     """load model artifacts such as csvs, model and JSON files"""
-    artifacts = {}
+    path = MODELHOME / fldr
+    artifacts = {
+        'name': fldr, 'path': str(path)
+    }
     for csv in path.glob('*.csv'):
         artifacts[csv.stem] = pd.read_csv(csv, index_col=0)
 
